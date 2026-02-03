@@ -173,6 +173,9 @@
 	import {
 		createPhotoApi
 	} from './components/api.js';
+	import {
+		login
+	} from '../../utils/auth.js';
 
 	// --- 1. 状态管理 (统一放在这里) ---
 	const currentStep = ref(0);
@@ -375,6 +378,66 @@
 		}
 	});
 
+	const requestCreatePhoto = async (retry = false) => {
+		isProcessing.value = true;
+		try {
+			const params = {
+				sizeName: currentSize.value?.name,
+				widthPx: currentSize.value?.widthPx,
+				heightPx: currentSize.value?.heightPx,
+				bgColor: currentBgColor.value,
+				renderMode: renderMode.value,
+				beautyConfig: beautyConfig.value,
+				watermarkConfig: watermarkConfig.value,
+				otherConfig: otherConfig.value,
+				points: 1
+			};
+
+			const res = await createPhotoApi(sourceImage.value, params);
+
+			// --- 逻辑成功区 ---
+			isProcessing.value = false;
+			resultImageUrl.value = res.data.imageUrl;
+			showResultModal.value = true;
+			// 制作成功后，让历史记录缓存失效 ---
+			uni.removeStorageSync('history_cache_first_page');
+
+			// 把图片映射缓存也清了
+			uni.removeStorageSync('history_image_map');
+		} catch (error) {
+			// --- 逻辑失败区 (API 里的 reject 会掉到这里) ---
+			
+			// 401 token失效 处理逻辑
+			if (error.code === 401 && !retry) {
+				console.log('Token失效，尝试自动登录...');
+				// 暂时隐藏制作中loading，因为login会有自己的loading
+				isProcessing.value = false;
+				try {
+					await login();
+					// 登录成功，重试一次
+					requestCreatePhoto(true);
+				} catch (e) {
+					isProcessing.value = false;
+					uni.showToast({
+						title: '登录失败，请重新尝试',
+						icon: 'none'
+					});
+				}
+				return;
+			}
+
+			isProcessing.value = false;
+			console.log('制作失败详情:', error);
+			let tip = error.message;
+
+			uni.showToast({
+				title: tip,
+				icon: 'none',
+				duration: 3000
+			});
+		}
+	};
+
 	const startProcess = async () => {
 		if (!sourceImage.value) {
 			return uni.showToast({
@@ -401,44 +464,7 @@
 			content: '制作证件照需要扣除 1 积分，是否继续？',
 			success: async (modalRes) => {
 				if (modalRes.confirm) {
-					isProcessing.value = true;
-
-					try {
-						const params = {
-							sizeName: currentSize.value?.name,
-							widthPx: currentSize.value?.widthPx,
-							heightPx: currentSize.value?.heightPx,
-							bgColor: currentBgColor.value,
-							renderMode: renderMode.value,
-							beautyConfig: beautyConfig.value,
-							watermarkConfig: watermarkConfig.value,
-							otherConfig: otherConfig.value,
-							points: 1
-						};
-
-						const res = await createPhotoApi(sourceImage.value, params);
-
-						// --- 逻辑成功区 ---
-						isProcessing.value = false;
-						resultImageUrl.value = res.data.imageUrl;
-						showResultModal.value = true;
-						// 制作成功后，让历史记录缓存失效 ---
-						uni.removeStorageSync('history_cache_first_page');
-
-						// 把图片映射缓存也清了
-						uni.removeStorageSync('history_image_map');
-					} catch (error) {
-						// --- 逻辑失败区 (API 里的 reject 会掉到这里) ---
-						isProcessing.value = false;
-						console.log('制作失败详情:', error);
-						let tip = error.message;
-						
-						uni.showToast({
-							title: tip,
-							icon: 'none',
-							duration: 3000
-						});
-					}
+					requestCreatePhoto();
 				}
 			}
 		});

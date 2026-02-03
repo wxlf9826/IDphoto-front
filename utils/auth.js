@@ -21,6 +21,9 @@ export const login = () => {
                         if (loginRes.data.code == 200) {
                             const resData = loginRes.data.data;
                             uni.setStorageSync('token', resData.token);
+                            if (resData.adUnitId) {
+                                uni.setStorageSync('adUnitId', resData.adUnitId);
+                            }
                             resolve(resData);
                         } else {
                             uni.showToast({

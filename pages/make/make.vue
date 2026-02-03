@@ -171,8 +171,10 @@
 	import WatermarkSelector from './components/watermark-selector.vue';
 	import OtherSelector from './components/other-selector.vue';
 	import {
-		createPhotoApi
-	} from './components/api.js';
+		createPhotoApi,
+		rewardPointsApi,
+		getUserInfoApi
+	} from '../../utils/api.js';
 	import {
 		login
 	} from '../../utils/auth.js';
@@ -188,6 +190,7 @@
 	const showResultModal = ref(false);
 	const resultImageUrl = ref('');
 	const isProcessing = ref(false); // 自定义加载状态
+	let videoAd = null; // 激励视频广告实例
 
 	// 默认值常量
 	const DEFAULT_SIZE = {
@@ -425,6 +428,13 @@
 				}
 				return;
 			}
+			
+			// 30003 积分不足 处理逻辑
+			if (error.code === 30003) {
+				isProcessing.value = false;
+				showAdRewardModal();
+				return;
+			}
 
 			isProcessing.value = false;
 			console.log('制作失败详情:', error);
@@ -434,6 +444,189 @@
 				title: tip,
 				icon: 'none',
 				duration: 3000
+			});
+		}
+	};
+	
+	const showAdRewardModal = () => {
+		uni.showModal({
+			title: '积分不足',
+			content: '您的积分不足，观看广告可获取积分，是否前往观看？',
+			success: (res) => {
+				if (res.confirm) {
+					loadAndShowAd();
+				}
+			}
+		});
+	};
+	
+	const handleAdClose = async (isEnded) => {
+		if (isEnded) {
+			const adUnitId = uni.getStorageSync('adUnitId');
+			const isTestMode = !adUnitId || adUnitId === '-1';
+
+			if (isTestMode) {
+				// 测试模式：为了方便测试，前端直接调用加积分接口
+				rewardPointsApi().then(() => {
+					showSuccessModal();
+				}).catch(err => {
+					uni.showToast({
+						title: '奖励发放失败',
+						icon: 'none'
+					});
+				});
+			} else {
+				// 正式模式：服务端回调加积分，前端查询验证
+				uni.showLoading({
+					title: '正在核实奖励...'
+				});
+				
+				// 轮询查询积分是否到账 (最多查5次，每次间隔1秒)
+				let checkCount = 0;
+				const maxChecks = 5;
+				
+				const checkPoints = async () => {
+					try {
+						const userInfo = await getUserInfoApi();
+						// 假设制作需要1积分，只要有积分就认为到账了（这里简化判断，积分大于0即可）
+						// 更严谨可以记录看广告前的积分做对比
+						if (userInfo.points && userInfo.points > 0) {
+							uni.hideLoading();
+							showSuccessModal();
+							return;
+						}
+						
+						checkCount++;
+						if (checkCount < maxChecks) {
+							setTimeout(checkPoints, 1000);
+						} else {
+							uni.hideLoading();
+							// 超时未查询到，但也可能到账了，提示用户重试
+							uni.showModal({
+								title: '提示',
+								content: '奖励核实超时，请点击确认重试制作',
+								success: (res) => {
+									if (res.confirm) {
+										requestCreatePhoto();
+									}
+								}
+							});
+						}
+					} catch (e) {
+						checkCount++;
+						if (checkCount < maxChecks) {
+							setTimeout(checkPoints, 1000);
+						} else {
+							uni.hideLoading();
+							uni.showToast({
+								title: '核实奖励失败，请重试',
+								icon: 'none'
+							});
+						}
+					}
+				};
+				
+				checkPoints();
+			}
+		} else {
+			// 播放中途退出
+			uni.showToast({
+				title: '观看完整广告才能获取积分哦',
+				icon: 'none'
+			});
+		}
+	};
+	
+	const showSuccessModal = () => {
+		uni.showModal({
+			title: '获取成功',
+			content: '积分已到账，是否重新开始制作？',
+			success: (res) => {
+				if (res.confirm) {
+					requestCreatePhoto();
+				}
+			}
+		});
+	};
+
+	const loadAndShowAd = async () => {
+		try {
+			// 1. 获取广告配置 (改为从缓存获取)
+			let adUnitId = uni.getStorageSync('adUnitId');
+
+			// 如果没有配置，或者明确是 -1，都视为测试环境
+			if (!adUnitId || adUnitId === '-1') {
+				console.log('当前为测试广告模式 (adUnitId: ' + adUnitId + ')');
+				uni.showModal({
+					title: '测试广告模式',
+					content: '当前环境未配置真实广告ID，模拟观看广告。\n点击【确定】模拟观看完成\n点击【取消】模拟中途退出',
+					success: (res) => {
+						handleAdClose(res.confirm);
+					}
+				});
+				return;
+			}
+
+			uni.showLoading({
+				title: '加载广告中...'
+			});
+
+			// 2. 创建或重用广告实例
+			if (videoAd) {
+				// 微信建议复用
+			} else {
+				if (uni.createRewardedVideoAd) {
+					const token = uni.getStorageSync('token');
+					videoAd = uni.createRewardedVideoAd({
+						adUnitId: adUnitId,
+						multiton: true, // 开启多例模式（可选，防止单例冲突）
+						multitonSideVerificationOptions: {
+							customData: token
+						}
+					});
+
+					videoAd.onError((err) => {
+						uni.hideLoading();
+						console.error('广告加载失败', err);
+						// 降级处理：如果真实广告加载失败，也允许测试通过（可选，这里先只提示）
+						uni.showToast({
+							title: '广告加载失败: ' + (err.errMsg || '未知错误'),
+							icon: 'none'
+						});
+					});
+
+					videoAd.onClose((status) => {
+						// 兼容基础库版本差异
+						const isEnded = (status && status.isEnded) || status === undefined;
+						handleAdClose(isEnded);
+					});
+				} else {
+					throw new Error('当前环境不支持激励视频广告');
+				}
+			}
+
+			// 3. 展示广告
+			videoAd.show().catch(() => {
+				// 失败重试
+				videoAd.load()
+					.then(() => videoAd.show())
+					.catch(err => {
+						uni.hideLoading();
+						console.error('广告展示失败', err);
+						uni.showToast({
+							title: '广告展示失败',
+							icon: 'none'
+						});
+					});
+			});
+			uni.hideLoading();
+
+		} catch (e) {
+			uni.hideLoading();
+			console.error(e);
+			uni.showToast({
+				title: '无法加载广告',
+				icon: 'none'
 			});
 		}
 	};

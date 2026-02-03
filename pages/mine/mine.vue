@@ -112,8 +112,11 @@
 		onShow
 	} from '@dcloudio/uni-app';
 	import {
-		login
+		login,
 	} from '@/utils/auth.js';
+	import {
+		getUserInfoApi
+	} from '@/utils/api.js';
 
 	const app = getApp().globalData || getApp();
 	const baseUrl = app.url;
@@ -153,34 +156,28 @@
 	});
 
 	// 从后端获取最新信息
-	const fetchUserInfo = () => {
-		uni.request({
-			url: baseUrl + '/user/info',
-			method: 'GET',
-			header: {
-				'token': uni.getStorageSync('token')
-			},
-			success: (res) => {
-				console.log('User info response:', res.data);
-				console.log('User info code:', res.data.code);
-				if (res.data.code === 200) {
-					const serverData = res.data.data;
-
-					// --- 关键点：如果 S3 图片地址存在，则执行本地存储逻辑 ---
-					if (serverData.avatarUrl && serverData.avatarUrl.startsWith('http')) {
-						saveAvatarLocally(serverData);
-					} else {
-						updateFinalData(serverData);
-					}
-
-				} else if (res.data.code === 401) {
-					clearAllCache();
-					uni.reLaunch({
-						url: '/pages/index/index'
-					});
-				}
+	const fetchUserInfo = async () => {
+		try {
+			const serverData = await getUserInfoApi();
+			console.log('User info data:', serverData);
+			
+			// --- 关键点：如果 S3 图片地址存在，则执行本地存储逻辑 ---
+			if (serverData.avatarUrl && serverData.avatarUrl.startsWith('http')) {
+				saveAvatarLocally(serverData);
+			} else {
+				updateFinalData(serverData);
 			}
-		});
+		} catch (error) {
+			console.error('Fetch user info error:', error);
+			if (error && error.code === 401) {
+				clearAllCache();
+				uni.reLaunch({
+					url: '/pages/index/index'
+				});
+			} else {
+				// Handle other errors or silent fail as in original code
+			}
+		}
 	};
 
 	// --- 新增：手动将图片存入手机文件系统 ---

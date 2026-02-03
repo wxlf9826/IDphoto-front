@@ -22,7 +22,7 @@
 							<view class="amount" :class="{ 'positive': item.changeAmount > 0 }">
 								{{ item.changeAmount > 0 ? '+' : '' }}{{ item.changeAmount }}
 							</view>
-							<view class="balance">余额: {{ item.totalPoint }}</view>
+							<view class="balance">余额: {{ item.totalPoints }}</view>
 						</view>
 					</view>
 

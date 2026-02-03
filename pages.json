@@ -1,0 +1,69 @@
+{
+	"pages": [
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "免费证件照"
+			}
+		},
+		{
+			"path": "pages/make/make",
+			"style": {
+				"navigationBarTitleText": "制作证件照",
+				"navigationBarBackgroundColor": "#F8F9FB",
+				"navigationBarTextStyle": "black",
+				"backgroundColor": "#F8F9FB",
+				"disableScroll": true
+			}
+		},
+		{
+			"path": "pages/history/history",
+			"style": {
+				"navigationBarTitleText": "制作历史",
+				"enablePullDownRefresh": true,
+				"backgroundTextStyle": "dark"
+			}
+		},
+		{
+			"path": "pages/mine/mine",
+			"style": {
+				"navigationBarTitleText": "个人中心",
+				"navigationBarBackgroundColor": "#F8F9FB",
+				"navigationBarTextStyle": "black"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "免费证件照",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	},
+	"tabBar": {
+		"color": "#999999",
+		"selectedColor": "#8280FF",
+		"borderStyle": "white",
+		"backgroundColor": "#ffffff",
+		"list": [
+			{
+				"pagePath": "pages/make/make",
+				"text": "制作",
+				"iconPath": "static/tabs/make.png",
+				"selectedIconPath": "static/tabs/make_active.png"
+			},
+			{
+				"pagePath": "pages/history/history",
+				"text": "历史",
+				"iconPath": "static/tabs/history.png",
+				"selectedIconPath": "static/tabs/history_active.png"
+			},
+			{
+				"pagePath": "pages/mine/mine",
+				"text": "我的",
+				"iconPath": "static/tabs/mine.png",
+				"selectedIconPath": "static/tabs/mine_active.png"
+			}
+		]
+	},
+	"uniIdRouter": {}
+}

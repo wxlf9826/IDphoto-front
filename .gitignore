@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 
 # 忽略 HBuilderX 的本地设置
 .hbuilderx/
+
+# 忽略manifest.json
+manifest.json

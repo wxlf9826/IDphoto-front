@@ -116,3 +116,43 @@ export const getUserInfoApi = () => {
         });
     });
 };
+/**
+ * 检测图片安全风险接口（真实后端对接）
+ * @param {String} filePath - 本地图片路径
+ */
+export const checkImageSafetyApi = (filePath) => {
+    const app = getApp();
+    const BASE_URL = app.globalData.url;
+
+    return new Promise((resolve, reject) => {
+        uni.uploadFile({
+            url: BASE_URL + '/photo/security/check',
+            header: {
+                'token': uni.getStorageSync('token')
+            },
+            filePath: filePath,
+            name: 'file',
+            success: (uploadRes) => {
+                try {
+                    const res = JSON.parse(uploadRes.data);
+                    if (res.code === 200) {
+                        resolve(res);
+                    } else {
+                        reject(res);
+                    }
+                } catch (e) {
+                    reject({
+                        code: 500,
+                        message: '安全检测解析异常'
+                    });
+                }
+            },
+            fail: (err) => {
+                reject({
+                    code: -1,
+                    message: '安全检测网络连接失败'
+                });
+            }
+        });
+    });
+};

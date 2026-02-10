@@ -147,15 +147,34 @@
 		</view>
 		
 		<!-- 自定义加载动画 -->
-		<view class="custom-loading-mask" v-if="isProcessing">
-			<view class="loading-content">
-				<view class="spinner-container">
-					<view class="spinner-ring"></view>
-					<view class="spinner-ring delay-1"></view>
-					<view class="spinner-ring delay-2"></view>
+		<!-- 制作中加载动画 -->
+		<view class="custom-loading-mask premium-loading" v-if="isProcessing">
+			<view class="loading-card shadow-glass">
+				<view class="spinner-visual">
+					<view class="orbit-container">
+						<view class="orbit-path"></view>
+						<view class="orbit-dot"></view>
+					</view>
+					<view class="core-glow"></view>
 				</view>
-				<text class="loading-text">制作中...</text>
-				<text class="loading-tip">AI 正在为您生成完美证件照</text>
+				<view class="text-group">
+					<text class="loading-text gradient-text">正在为您精心制作</text>
+					<text class="loading-tip">AI 引擎正在生成完美证件照...</text>
+				</view>
+			</view>
+		</view>
+
+		<!-- 安全性检测加载动画 -->
+		<view class="custom-loading-mask premium-loading" v-if="isCheckingSafety">
+			<view class="loading-card shadow-glass">
+				<view class="spinner-visual safety-theme">
+					<view class="pulse-ring"></view>
+					<view class="shield-icon">🛡️</view>
+				</view>
+				<view class="text-group">
+					<text class="loading-text gradient-text">安全性检测中</text>
+					<text class="loading-tip">为了您的照片安全，正在进行合规性验证</text>
+				</view>
 			</view>
 		</view>
 	</view>
@@ -173,7 +192,8 @@
 	import {
 		createPhotoApi,
 		rewardPointsApi,
-		getUserInfoApi
+		getUserInfoApi,
+		checkImageSafetyApi
 	} from '../../utils/api.js';
 	import {
 		login
@@ -190,6 +210,7 @@
 	const showResultModal = ref(false);
 	const resultImageUrl = ref('');
 	const isProcessing = ref(false); // 自定义加载状态
+	const isCheckingSafety = ref(false); // 安全性检测状态
 	let videoAd = null; // 激励视频广告实例
 
 	// 默认值常量
@@ -287,7 +308,39 @@
 	const chooseImage = () => {
 		uni.chooseImage({
 			count: 1,
-			success: (res) => (sourceImage.value = res.tempFilePaths[0])
+			success: async (res) => {
+				const tempFilePath = res.tempFilePaths[0];
+				
+				// 开启安全性检测 UI
+				isCheckingSafety.value = true;
+				try {
+					// 调用实际后端安全性检测接口
+					const safetyRes = await checkImageSafetyApi(tempFilePath);
+					
+					if (safetyRes.data && safetyRes.data.passed) {
+						sourceImage.value = tempFilePath;
+						uni.showToast({
+							title: '检测通过',
+							icon: 'success'
+						});
+					} else {
+						uni.showModal({
+							title: '安全提示',
+							content: safetyRes.data.rejectReason || '图片内容不符合规范，请更换图片后重试',
+							showCancel: false
+						});
+					}
+				} catch (error) {
+					console.error('安全检测失败:', error);
+					uni.showToast({
+						title: error.message || '检测失败，请重试',
+						icon: 'none'
+					});
+				} finally {
+					// 关闭安全性检测 UI
+					isCheckingSafety.value = false;
+				}
+			}
 		});
 	};
 	const handleOpenSizeModal = (data) => {
@@ -1190,108 +1243,146 @@
 		}
 	}
 	
-	/* 自定义加载动画 */
-	.custom-loading-mask {
+	/* Premium 加载动画重构 */
+	.custom-loading-mask.premium-loading {
 		position: fixed;
 		top: 0;
 		left: 0;
 		right: 0;
 		bottom: 0;
 		z-index: 9999;
-		background: rgba(0, 0, 0, 0.7);
-		backdrop-filter: blur(10px);
+		background: rgba(15, 23, 42, 0.4); // 更深邃的半透明蓝灰色
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		animation: fadeIn 0.3s ease-out;
-		
-		.loading-content {
+		animation: fadeInElite 0.5s ease-out;
+
+		.loading-card {
+			width: 600rpx;
+			background: rgba(255, 255, 255, 0.72);
+			backdrop-filter: blur(40rpx) saturate(180%);
+			-webkit-backdrop-filter: blur(40rpx) saturate(180%);
+			border-radius: 48rpx;
+			padding: 64rpx 40rpx;
+			border: 1px solid rgba(255, 255, 255, 0.4);
 			display: flex;
 			flex-direction: column;
 			align-items: center;
-			gap: 32rpx;
-			
-			.spinner-container {
+			box-shadow: 0 40rpx 100rpx rgba(0, 0, 0, 0.12);
+
+			.spinner-visual {
+				width: 160rpx;
+				height: 160rpx;
 				position: relative;
-				width: 120rpx;
-				height: 120rpx;
-				
-				.spinner-ring {
+				margin-bottom: 48rpx;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+
+				/* 制作中专用动画：轨道转子 */
+				.orbit-container {
 					position: absolute;
-					top: 0;
-					left: 0;
 					width: 100%;
 					height: 100%;
-					border: 6rpx solid transparent;
-					border-top-color: #8280FF;
-					border-right-color: #8280FF;
-					border-radius: 50%;
-					animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-					
-					&.delay-1 {
-						animation-delay: -0.4s;
-						border-top-color: #A29BFF;
-						border-right-color: #A29BFF;
-						opacity: 0.7;
+					animation: rotate360 2s linear infinite;
+
+					.orbit-path {
+						position: absolute;
+						width: 100%;
+						height: 100%;
+						border: 4rpx solid rgba(130, 128, 255, 0.1);
+						border-radius: 50%;
 					}
-					
-					&.delay-2 {
-						animation-delay: -0.8s;
-						border-top-color: #C4C0FF;
-						border-right-color: #C4C0FF;
-						opacity: 0.5;
+
+					.orbit-dot {
+						position: absolute;
+						top: -4rpx;
+						left: 50%;
+						width: 16rpx;
+						height: 16rpx;
+						background: #8280FF;
+						border-radius: 50%;
+						margin-left: -8rpx;
+						box-shadow: 0 0 20rpx #8280FF;
+					}
+				}
+
+				.core-glow {
+					width: 80rpx;
+					height: 80rpx;
+					background: radial-gradient(circle, rgba(130, 128, 255, 0.2) 0%, rgba(130, 128, 255, 0) 70%);
+					border-radius: 50%;
+					animation: pulseGlow 2s ease-in-out infinite;
+				}
+
+				/* 安全检测专用动画：雷达脉冲 */
+				&.safety-theme {
+					.pulse-ring {
+						position: absolute;
+						width: 100%;
+						height: 100%;
+						border: 2rpx solid #8280FF;
+						border-radius: 50%;
+						animation: radarPulse 1.5s ease-out infinite;
+					}
+
+					.shield-icon {
+						font-size: 64rpx;
+						animation: floating 3s ease-in-out infinite;
 					}
 				}
 			}
-			
-			.loading-text {
-				font-size: 36rpx;
-				font-weight: bold;
-				color: #ffffff;
-				animation: pulse 1.5s ease-in-out infinite;
+
+			.text-group {
+				text-align: center;
+
+				.loading-text {
+					display: block;
+					font-size: 36rpx;
+					font-weight: 800;
+					margin-bottom: 16rpx;
+					letter-spacing: 2rpx;
+				}
+
+				.gradient-text {
+					background: linear-gradient(135deg, #1e293b 0%, #8280FF 100%);
+					-webkit-background-clip: text;
+					background-clip: text;
+					color: transparent;
+				}
+
+				.loading-tip {
+					font-size: 24rpx;
+					color: #64748b;
+					font-weight: 500;
+					line-height: 1.6;
+				}
 			}
-			
-			.loading-tip {
-				font-size: 24rpx;
-				color: rgba(255, 255, 255, 0.7);
-				animation: fadeInOut 2s ease-in-out infinite;
-			}
 		}
 	}
-	
-	@keyframes spin {
-		0% {
-			transform: rotate(0deg);
-		}
-		100% {
-			transform: rotate(360deg);
-		}
+
+	@keyframes rotate360 {
+		from { transform: rotate(0deg); }
+		to { transform: rotate(360deg); }
 	}
-	
-	@keyframes pulse {
-		0%, 100% {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.6;
-		}
+
+	@keyframes pulseGlow {
+		0%, 100% { transform: scale(0.8); opacity: 0.5; }
+		50% { transform: scale(1.2); opacity: 1; }
 	}
-	
-	@keyframes fadeInOut {
-		0%, 100% {
-			opacity: 0.7;
-		}
-		50% {
-			opacity: 0.3;
-		}
+
+	@keyframes radarPulse {
+		0% { transform: scale(0.6); opacity: 1; border-width: 4rpx; }
+		100% { transform: scale(1.4); opacity: 0; border-width: 1rpx; }
 	}
-	
-	@keyframes fadeIn {
-		from {
-			opacity: 0;
-		}
-		to {
-			opacity: 1;
-		}
+
+	@keyframes floating {
+		0%, 100% { transform: translateY(0); }
+		50% { transform: translateY(-10rpx); }
+	}
+
+	@keyframes fadeInElite {
+		from { opacity: 0; backdrop-filter: blur(0); }
+		to { opacity: 1; backdrop-filter: blur(40rpx); }
 	}
 </style>

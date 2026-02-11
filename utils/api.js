@@ -156,3 +156,65 @@ export const checkImageSafetyApi = (filePath) => {
         });
     });
 };
+
+/**
+ * 获取背景颜色列表
+ */
+export const getBgColorListApi = () => {
+    const app = getApp();
+    const BASE_URL = app.globalData.url;
+
+    return new Promise((resolve, reject) => {
+        uni.request({
+            url: BASE_URL + '/menu/bgColor/list',
+            method: 'GET',
+            header: {
+                'token': uni.getStorageSync('token')
+            },
+            success: (res) => {
+                if (res.data.code === 200) {
+                    resolve(res.data.data);
+                } else {
+                    reject(res.data);
+                }
+            },
+            fail: (err) => {
+                reject({
+                    code: -1,
+                    message: '获取建议颜色失败'
+                });
+            }
+        });
+    });
+};
+
+/**
+ * 获取尺寸列表
+ */
+export const getSizeListApi = () => {
+    const app = getApp();
+    const BASE_URL = app.globalData.url;
+
+    return new Promise((resolve, reject) => {
+        uni.request({
+            url: BASE_URL + '/menu/size/list',
+            method: 'GET',
+            header: {
+                'token': uni.getStorageSync('token')
+            },
+            success: (res) => {
+                if (res.data.code === 200) {
+                    resolve(res.data.data);
+                } else {
+                    reject(res.data);
+                }
+            },
+            fail: (err) => {
+                reject({
+                    code: -1,
+                    message: '获取尺寸列表失败'
+                });
+            }
+        });
+    });
+};

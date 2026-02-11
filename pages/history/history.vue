@@ -181,6 +181,9 @@
 	import {
 		login
 	} from '@/utils/auth.js';
+	import {
+		getBgColorListApi
+	} from '@/utils/api.js';
 
 	const app = getApp().globalData || getApp();
 	const baseUrl = app.url;
@@ -231,38 +234,30 @@
 	const showParamsModal = ref(false);
 	const currentParams = ref(null);
 
-	const bgOptions = [{
-			name: '白色',
-			color: '#FFFFFF'
-		}, {
-			name: '蓝色',
-			color: '#438EDB'
-		},
-		{
-			name: '红色',
-			color: '#FF0000'
-		}, {
-			name: '黑色',
-			color: '#000000'
-		},
-		{
-			name: '深蓝',
-			color: '#001F3F'
-		}, {
-			name: '浅灰',
-			color: '#CCCCCC'
-		},
-		{
-			name: '黄色',
-			color: '#FFD700'
-		}, {
-			name: '绿色',
-			color: '#4CAF50'
+	const bgOptions = ref([]);
+
+	const fetchBgColors = async () => {
+		try {
+			const data = await getBgColorListApi();
+			bgOptions.value = data.map(item => ({
+				name: item.name,
+				color: item.colorValue
+			}));
+		} catch (error) {
+			console.error('获取颜色列表失败:', error);
+			bgOptions.value = [{
+				name: '白色',
+				color: '#FFFFFF'
+			}, {
+				name: '蓝色',
+				color: '#438EDB'
+			}];
 		}
-	];
+	};
 
 	onShow(() => {
 		checkLoginAndInit();
+		fetchBgColors();
 	});
 
 	onReachBottom(() => {
@@ -411,16 +406,23 @@
 	};
 
 	const handleViewParams = (item) => {
-		if (!item.useParam) return uni.showToast({
-			title: '暂无制作参数',
-			icon: 'none'
-		});
 		try {
-			currentParams.value = typeof item.useParam === 'string' ? JSON.parse(item.useParam) : item.useParam;
+			// 直接构造参数对象，解析 JSON 字符串
+			currentParams.value = {
+				sizeName: item.sizeName,
+				widthPx: item.widthPx,
+				heightPx: item.heightPx,
+				bgColor: item.bgColor,
+				renderMode: item.renderMode,
+				beautyConfig: typeof item.beautyConfig === 'string' ? JSON.parse(item.beautyConfig) : item.beautyConfig,
+				watermarkConfig: typeof item.watermarkConfig === 'string' ? JSON.parse(item.watermarkConfig) : item.watermarkConfig,
+				otherConfig: typeof item.otherConfig === 'string' ? JSON.parse(item.otherConfig) : item.otherConfig
+			};
 			showParamsModal.value = true;
 		} catch (e) {
+			console.error('Parse params error:', e);
 			uni.showToast({
-				title: '参数数据格式错误',
+				title: '参数解析异常',
 				icon: 'none'
 			});
 		}
@@ -462,7 +464,7 @@
 		urls: [currentViewImage.value]
 	});
 	const extractTime = (timeStr) => timeStr ? timeStr.split(' ')[1] : '';
-	const getBgName = (color) => bgOptions.find(i => i.color.toUpperCase() === color?.toUpperCase())?.name || '自定义';
+	const getBgName = (color) => bgOptions.value.find(i => i.color.toUpperCase() === color?.toUpperCase())?.name || '自定义';
 	const getModeLabel = (mode) => ({
 		solid: '纯色',
 		linear: '渐变',

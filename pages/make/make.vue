@@ -43,7 +43,7 @@
 
 			<swiper class="config-swiper" :current="currentStep" @change="onSwiperChange">
 				<swiper-item>
-					<size-selector v-model="currentSize" @open-modal="handleOpenSizeModal" />
+					<size-selector v-model="currentSize" :remoteSizes="remoteSizes" @open-modal="handleOpenSizeModal" />
 				</swiper-item>
 
 				<swiper-item>
@@ -182,7 +182,8 @@
 
 <script setup>
 	import {
-		ref
+		ref,
+		onMounted
 	} from 'vue';
 	import SizeSelector from './components/size-selector.vue';
 	import ColorSelector from './components/color-selector.vue';
@@ -193,7 +194,9 @@
 		createPhotoApi,
 		rewardPointsApi,
 		getUserInfoApi,
-		checkImageSafetyApi
+		checkImageSafetyApi,
+		getBgColorListApi,
+		getSizeListApi
 	} from '../../utils/api.js';
 	import {
 		login
@@ -276,31 +279,48 @@
 		title: '其他设置',
 		enTitle: 'OTHERS'
 	}];
-	const bgOptions = [{
-		name: '白色',
-		color: '#FFFFFF'
-	}, {
-		name: '蓝色',
-		color: '#438EDB'
-	}, {
-		name: '红色',
-		color: '#FF0000'
-	}, {
-		name: '黑色',
-		color: '#000000'
-	}, {
-		name: '深蓝',
-		color: '#001F3F'
-	}, {
-		name: '浅灰',
-		color: '#CCCCCC'
-	}, {
-		name: '黄色',
-		color: '#FFD700'
-	}, {
-		name: '绿色',
-		color: '#4CAF50'
-	}];
+	const bgOptions = ref([]);
+
+	const fetchBgColors = async () => {
+		try {
+			const data = await getBgColorListApi();
+			// 映射字段名以适配现有逻辑
+			bgOptions.value = data.map(item => ({
+				name: item.name,
+				color: item.colorValue
+			}));
+		} catch (error) {
+			console.error('获取背景颜色失败:', error);
+			// 降级方案：保留一些基础颜色或提示
+			bgOptions.value = [{
+				name: '白色',
+				color: '#FFFFFF'
+			}, {
+				name: '蓝色',
+				color: '#438EDB'
+			}];
+		}
+	};
+
+	onMounted(() => {
+		fetchBgColors();
+		fetchSizes();
+	});
+
+	const fetchSizes = async () => {
+		try {
+			const data = await getSizeListApi();
+			remoteSizes.value = data.map(i => ({
+				name: i.name,
+				px: `${i.widthPx}×${i.heightPx} px`,
+				widthPx: i.widthPx,
+				heightPx: i.heightPx
+			}));
+		} catch (error) {
+			console.error('获取尺寸列表失败:', error);
+			// 兜底逻辑：remoteSizes 会由子组件的 staticSizes 提供
+		}
+	};
 
 	const onSwiperChange = (e) => {
 		currentStep.value = e.detail.current;
@@ -356,7 +376,7 @@
 	};
 	const getBgName = (color) => {
 		if (!color) return '未选择';
-		const preset = bgOptions.find(i => i.color.toUpperCase() === color.toUpperCase());
+		const preset = bgOptions.value.find(i => i.color.toUpperCase() === color.toUpperCase());
 		return preset ? preset.name : '自定义';
 	};
 	const getModeLabel = (mode) => {

@@ -1,6 +1,6 @@
 <template>
 	<view class="option-grid">
-		<view v-for="item in staticSizes" :key="item.name" class="option-card"
+		<view v-for="item in displaySizes" :key="item.name" class="option-card"
 			:class="{ active: modelValue?.name === item.name && !isCustomSelected }" @click="onSelect(item, false)">
 			<view class="card-inner">
 				<text class="size-name">{{ item.name }}</text>
@@ -19,7 +19,9 @@
 </template>
 
 <script setup>
-	const props = defineProps(['modelValue', 'isCustomSelected']);
+	import { computed } from 'vue';
+
+	const props = defineProps(['modelValue', 'isCustomSelected', 'remoteSizes']);
 	// 定义一个 'open-modal' 事件，用来向上传递数据
 	const emit = defineEmits(['update:modelValue', 'update:isCustomSelected', 'open-modal']);
 
@@ -43,39 +45,22 @@
 		}
 	];
 
-	const loadMoreData = () => {
-		const app = getApp().globalData || getApp();
-		uni.showLoading({
-			title: '加载中'
-		});
+	// 优先使用父组件传来的远程数据的前 3 个，否则使用本地写死的
+	const displaySizes = computed(() => {
+		if (props.remoteSizes && props.remoteSizes.length > 0) {
+			return props.remoteSizes.slice(0, 3);
+		}
+		return staticSizes;
+	});
 
-		// 请求代码写在子组件里
-		uni.request({
-			url: (app.url || '') + '/menu/size/list',
-			success: (res) => {
-				let data = [];
-				if (res.data?.code === 200) {
-					data = res.data.data.map(i => ({
-						name: i.name,
-						px: `${i.widthPx}×${i.heightPx} px`,
-						widthPx: i.widthPx,
-						heightPx: i.heightPx
-					}));
-				} else {
-					// 兜底模拟数据
-					data = staticSizes;
-				}
-				// 请求成功后，把数据发给父组件，并告诉父组件“可以弹窗了”
-				emit('open-modal', data);
-			},
-			fail: () => {
-				uni.showToast({
-					title: '网络错误',
-					icon: 'none'
-				});
-			},
-			complete: () => uni.hideLoading()
-		});
+	const loadMoreData = () => {
+		// 如果父组件已经预取了数据，直接打开弹窗
+		if (props.remoteSizes && props.remoteSizes.length > 0) {
+			emit('open-modal', props.remoteSizes);
+		} else {
+			// 如果由于各种原因（如异步延迟）还没拿到，再请求一次也没关系，或者直接用本地数据
+			emit('open-modal', staticSizes);
+		}
 	};
 
 	const onSelect = (item, isCustom) => {

@@ -120,6 +120,10 @@
 						<text class="p-label">渲染模式</text>
 						<text class="p-value">{{ getModeLabel(renderMode) }}</text>
 					</view>
+					<view class="param-item">
+						<text class="p-label">其他设置</text>
+						<text class="p-value">{{ otherConfig.enable ? '已开启' : '未开启' }}</text>
+					</view>
 				</view>
 				<button class="confirm-btn" @click="showDetail = false">我知道了</button>
 			</view>

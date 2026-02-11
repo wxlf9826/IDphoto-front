@@ -802,6 +802,17 @@
 			.popup-content {
 				max-height: 60vh;
 				overflow-y: auto;
+				padding: 0 32rpx;
+				box-sizing: border-box;
+
+				/* 隐藏滚动条 */
+				&::-webkit-scrollbar {
+					display: none;
+					width: 0 !important;
+					height: 0 !important;
+					-webkit-appearance: none;
+					background: transparent;
+				}
 
 				.param-item {
 					display: flex;

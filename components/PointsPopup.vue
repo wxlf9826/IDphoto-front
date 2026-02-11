@@ -229,15 +229,24 @@
 	.history-list-scroll {
 		flex: 1;
 		height: 0; // Important for flex scroll
-		padding: 20rpx 30rpx;
+		padding: 0 30rpx;
 		box-sizing: border-box;
+		
+		/* 隐藏滚动条 */
+		::-webkit-scrollbar {
+			display: none;
+			width: 0 !important;
+			height: 0 !important;
+			-webkit-appearance: none;
+			background: transparent;
+		}
 	}
 
 	.history-item {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 30rpx 0;
+		padding: 30rpx 10rpx; /* 稍微内缩 */
 		border-bottom: 1rpx solid #f5f5f5;
 
 		&:last-child {
